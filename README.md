@@ -58,14 +58,33 @@ TEAM_4_FirmDataHub/
    ```
 
 2. **Initialize MySQL database:**
+   
+   **Option A: Run from Terminal/PowerShell (RECOMMENDED)**
    ```bash
-   # Create database schema and load seed data (REQUIRED)
+   # Navigate to project folder
+   cd c:\Users\HP\Downloads\mysqlsampledatabase\TEAM_4_FirmDataHub
+   
+   # Run command (will prompt for MySQL password)
    mysql -u root -p < sql/schema_and_seed.sql
+   # Enter password when prompted
    ```
-   This creates all required tables:
-   - Dimension: `dim_firm`, `dim_data_source`, `dim_exchange`, `dim_industry_l2`
+   
+   **Option B: If running from MySQL interactive shell**
+   ```sql
+   -- First, open MySQL interactive shell:
+   -- mysql -u root -p
+   -- (enter your password at prompt)
+   
+   -- Then inside MySQL shell (at mysql> prompt), run:
+   SOURCE sql/schema_and_seed.sql;
+   -- OR
+   \. sql/schema_and_seed.sql;
+   ```
+   
+   **What this creates:**
+   - Dimension tables: `dim_firm`, `dim_data_source`, `dim_exchange`, `dim_industry_l2`
    - Fact tables: `fact_ownership_year`, `fact_market_year`, `fact_financial_year`, `fact_cashflow_year`, `fact_innovation_year`, `fact_firm_year_meta`
-   - Snapshot: `fact_data_snapshot`
+   - Snapshot table: `fact_data_snapshot`
 
 3. **Configure MySQL connection** (`etl/db_config.py`):
    ```python
@@ -298,26 +317,23 @@ STEP 6: Export Clean Data
    → Ready for analysis
 ```
 
-### Reproducible Scripts
+### 🔄 Reproducible Scripts
 
 **IMPORTANT: Database Initialization Required**
 
-Before running the ETL pipeline, you must first initialize the MySQL database with schema and seed data:
+Before running the ETL pipeline, you must first initialize the MySQL database with schema and seed data.
 
-```bash
-# 1. Initialize MySQL database (MUST RUN FIRST!)
-mysql -u root -p < sql/schema_and_seed.sql
-# This creates all required tables (dim_firm, fact_data_snapshot, etc.) and seed data
-```
+   ```powershell
+   mysql -u root -p < sql/schema_and_seed.sql
+   ```
 
-After database initialization is complete, execute the ETL pipeline in order:
+**After database initialization is complete, execute the ETL pipeline in order:**
 
 ```bash
 # 2. Import firms
 python etl/import_firms.py data/firms.xlsx
 
 # 3. Create 20 snapshots for batch
-python etl/create_snapshot.py --setup
 python etl/create_snapshot.py --batch-default 2020 2024
 
 # 4. Import data 
@@ -332,9 +348,6 @@ python etl/qc_checks.py
 # 6. Export clean panel
 python etl/export_panel.py
 
-# Check results
-cat outputs/qc_report.csv | head -20
-ls -lh outputs/panel_latest.csv
 ```
 
 ---
