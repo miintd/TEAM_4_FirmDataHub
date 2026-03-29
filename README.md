@@ -1,14 +1,14 @@
-# FirmDataHub - ETL Pipeline for Firm Financial Data Management
+# FirmDataHub - ETL Pipeline
 
 **A comprehensive Python ETL (Extract, Transform, Load) solution for importing, validating, and exporting firm-level financial panel data from Excel to MySQL.**
 
 ## 📋 Quick Overview
 
-- **Data Source:** Excel files with firm information and 37-variable financial panel data
+- **Data Source:** Excel files with firm information and 38-variable financial panel data
 - **Database:** MySQL with snapshot versioning system
 - **Processing:** Automated Python-based data pipeline with quality controls
 - **Output:** Clean, validated panel data in CSV format
-- **Versioning:** Multi-snapshot support for data version control (1-20 snapshots per batch)
+- **Versioning:** Multi-snapshot support for data version control
 
 ---
 
@@ -16,21 +16,24 @@
 
 ```
 TEAM_4_FirmDataHub/
-├── README.md                    # Project documentation (English)
-├── requirements.txt             # Python dependencies (pandas, mysql-connector-python)
+├── README.md                    # Project documentation 
+├── requirements.txt             # Python dependencies 
 │
 ├── data/                        # Input data directory
-│   ├── team_ticker.csv         # Reference ticker list
-│   └── (Excel files to import)
+│   ├── firms.xlsx              # List of firms
+│   ├── panel_2020_2024.xlsx    # 38-variable financial panel data
+│   └── team_ticker.csv         # Reference ticker list
+│
+├── sql/                         # Database schema and initialization
+│   └── schema_and_seed.sql     # MySQL schema definitions and seed data
 │
 ├── etl/                         # ETL processing scripts
 │   ├── db_config.py            # MySQL connection settings  
-│   ├── create_snapshot.py      # Create data snapshots for versioning (snapshot_id 1-20)
+│   ├── create_snapshot.py      # Create data snapshots for versioning
 │   ├── import_firms.py         # Import firm dimension table
-│   ├── import_panel.py         # Import 37-variable panel data with snapshot_id
-│   ├── qc_checks.py            # Data quality validation (6 check types) - 222 lines
-│   ├── export_panel.py         # Export clean panel using MAX(snapshot_id)
-│   └── __pycache__/            # Python cache (auto-generated)
+│   ├── import_panel.py         # Import 38-variable panel data
+│   ├── qc_checks.py            # Data quality validation 
+│   └── export_panel.py         # Export clean panel 
 │
 └── outputs/                     # Generated output files
     ├── panel_latest.csv        # Exported 38-variable panel dataset
@@ -44,7 +47,7 @@ TEAM_4_FirmDataHub/
 ### Prerequisites
 
 - **Python** 3.8+
-- **MySQL Server** 5.7+ with database `firm_data_hub`
+- **MySQL Server** 5.7+ with database `vn_firm_panel`
 - **Dependencies:** pandas, mysql-connector-python
 
 ### Installation
@@ -54,21 +57,26 @@ TEAM_4_FirmDataHub/
    pip install -r requirements.txt
    ```
 
-2. **Configure MySQL connection** (`etl/db_config.py`):
+2. **Initialize MySQL database:**
+   ```bash
+   # Create database schema and load seed data (REQUIRED)
+   mysql -u root -p < sql/schema_and_seed.sql
+   ```
+   This creates all required tables:
+   - Dimension: `dim_firm`, `dim_data_source`, `dim_exchange`, `dim_industry_l2`
+   - Fact tables: `fact_ownership_year`, `fact_market_year`, `fact_financial_year`, `fact_cashflow_year`, `fact_innovation_year`, `fact_firm_year_meta`
+   - Snapshot: `fact_data_snapshot`
+
+3. **Configure MySQL connection** (`etl/db_config.py`):
    ```python
    DB_CONFIG = {
        'host': 'localhost',
-       'database': 'firm_data_hub',
+       'database': 'vn_firm_panel',
        'port': '3306',
        'user': 'root',
        'password': 'your_password'  # ← Update with your credentials
    }
    ```
-
-3. **Verify MySQL database tables exist:**
-   - Dimension: `dim_firm`, `dim_data_source`
-   - Fact tables: `fact_ownership_year`, `fact_market_year`, `fact_financial_year`, `fact_cashflow_year`, `fact_innovation_year`, `fact_firm_year_meta`
-   - Snapshot: `fact_data_snapshot`
 
 4. **Prepare input data** - Place Excel files in `data/` folder
 
@@ -94,34 +102,7 @@ DB_CONFIG = {
 
 ---
 
-### 2️⃣ `create_snapshot.py` — Create Data Snapshots
-
-**Purpose:** Create dated snapshot records for data version control and tracking
-
-**Features:**
-- Creates records in `fact_data_snapshot` table
-- Auto-increments `snapshot_id` (1, 2, 3, ...)
-- Records timestamp, description, and statistics
-- Batch mode: Create 20 snapshots (4 sources × 5 fiscal years)
-
-**Usage — Single snapshot:**
-```bash
-python etl/create_snapshot.py --description "Data batch 1"
-```
-
-**Usage — Batch mode (4 sources × 5 years):**
-```bash
-python etl/create_snapshot.py --batch-default 2020 2024
-# Creates 20 snapshots (snapshot_id: 1-20)
-# For: 4 data sources × fiscal years 2020-2024
-```
-
-**Output:**
-- Record in `fact_data_snapshot` with auto-incremented `snapshot_id`
-
----
-
-### 3️⃣ `import_firms.py` — Import Firm Dimension
+### 2️⃣ `import_firms.py` — Import Firm Dimension
 
 **Purpose:** Import firm master data into `dim_firm` dimension table
 
@@ -137,18 +118,58 @@ python etl/import_firms.py data/firms.xlsx
 ```
 
 **Input:** Excel with columns:
-- ticker, firm_name, industry, country, ...
+- ticker, company_name, Exchange, Industry
 
 **Output:** Populated `dim_firm` dimension table
 
 ---
 
-### 4️⃣ `import_panel.py` — Import 37-Variable Panel Data
+### 3️⃣ `create_snapshot.py` — Create Data Snapshots
+
+**Purpose:** Create dated snapshot records for data version control and tracking
+
+**Input:**
+- `source_name` (required) - Data source identifier (e.g., 'ACB', 'TPB', 'Bloomberg', 'Internal')
+- `fiscal_year` (required) - Fiscal year (e.g., 2020, 2021, 2024)
+- `snapshot_date` (optional) - Date snapshot was created (YYYY-MM-DD, defaults to today)
+- `version_tag` (optional) - Version identifier (e.g., 'v1', 'v2', 'final')
+
+**Features:**
+- Creates records in `fact_data_snapshot` table
+- Auto-increments `snapshot_id` (1, 2, 3, ...)
+- Each snapshot uniquely characterized by source_name + fiscal_year combination
+- Records timestamp, description, and statistics
+
+**Usage — Single snapshot:**
+```bash
+python etl/create_snapshot.py <source_name> <fiscal_year> [snapshot_date] [version_tag]
+```
+
+**Usage — Multiple snapshots:**
+```bash
+python etl/create_snapshot.py --batch-default 2020 2024
+# Creates 20 snapshots for: 4 data sources × fiscal years 2020-2024
+```
+
+**Output:**
+- Record in `fact_data_snapshot` with auto-incremented `snapshot_id`
+
+---
+
+### 4️⃣ `import_panel.py` — Import 38-Variable Panel Data
 
 **Purpose:** Import financial panel data into 6 fact tables with snapshot versioning
 
+**Key Concept:** Import data for specific sources and fiscal years, with each data row linked to corresponding snapshot
+
+**Input Parameters:**
+- Excel file containing panel data (columns: ticker, fiscal_year, source_name, variable_name, value)
+- `--source-year` (optional) - Import specific source_name + fiscal_year(s)
+- `--snapshots` (alternative) - Import using snapshot_id(s) directly
+- `--modules` (optional) - Module filter (financial, ownership, market, cashflow, innovation, meta)
+
 **Features:**
-- Reads 37-variable panel data from Excel
+- Reads 38-variable panel data from Excel
 - Validates `snapshot_id` exists in `fact_data_snapshot`
 - Distributes data into 6 fact tables:
   - `fact_ownership_year` (4 variables)
@@ -157,8 +178,7 @@ python etl/import_firms.py data/firms.xlsx
   - `fact_cashflow_year` (3 variables)
   - `fact_innovation_year` (2 variables)
   - `fact_firm_year_meta` (2 variables)
-- Supports selective module import and multiple snapshot ranges
-- Snapshot_id links each record to its data version
+- Each data row linked to correct snapshot_id via source_name + fiscal_year
 
 **Usage — Single snapshot:**
 ```bash
@@ -167,6 +187,10 @@ python etl/import_panel.py data/panel.xlsx --snapshots 1
 
 **Usage — Multiple modules:**
 ```bash
+# Single snapshot
+python etl/import_panel.py data/panel.xlsx --snapshots 1
+
+# Multiple modules with snapshots
 python etl/import_panel.py data/panel.xlsx --modules financial,ownership --snapshots 1-5
 ```
 
@@ -212,13 +236,11 @@ AAPL   | 2024        | 1           | net_sales     | 383285
 
 **Key Features:**
 - Uses `MAX(snapshot_id)` per firm_id + fiscal_year (latest version selection)
-- Optimized code: 222 lines (57% reduction from original)
 - Helper methods to eliminate SQL duplication
 - Detailed CSV error report with error summaries
 
 **Usage:**
 ```bash
-# Validate all data (uses MAX snapshot_id per firm-year)
 python etl/qc_checks.py
 ```
 
@@ -228,28 +250,21 @@ ticker | fiscal_year | field_name          | error_type     | message
 AAPL   | 2024        | total_assets        | negative_value | total_assets=-1000 should be >= 0
 MSFT   | 2023        | shares_outstanding | invalid_value  | shares_outstanding=0 should be > 0
 ```
-
-**Report Summary:**
-- Total error count
-- Breakdown by error_type
-- Lists affected firms and time ranges
-
 ---
 
 ### 6️⃣ `export_panel.py` — Export Clean Panel Data
 
-**Purpose:** Export validated 37-variable panel dataset using latest snapshot versions
+**Purpose:** Export validated 38-variable panel dataset using latest snapshot versions
 
 **Features:**
 - Selects `MAX(snapshot_id)` per firm_id + fiscal_year for each fact table
 - Performs LEFT JOINs across all 6 fact tables
-- Preserves all 37 variables structured by module
+- Preserves all 38 variables structured by module
 - Handles missing values gracefully (NULLs from unmatched LEFT JOINs)
 
 **Usage:**
 ```bash
 python etl/export_panel.py
-# Output: outputs/panel_latest.csv
 ```
 
 **Output:** `outputs/panel_latest.csv`
@@ -273,20 +288,21 @@ STEP 1: Setup & Configuration
 ├─ Verify MySQL database exists with required tables
 └─ Install dependencies: pip install -r requirements.txt
 
-STEP 2: Initialize Snapshots (version management)
-└─ python etl/create_snapshot.py --batch-default 2020 2024
-   → Creates 20 snapshots (snapshot_id: 1-20)
-   → For: 4 data sources × fiscal years 2020-2024
-
-STEP 3: Import Master Firm Data
+STEP 2: Import Master Firm Data
 └─ python etl/import_firms.py data/firms.xlsx
    → Populates dim_firm table
    → Reference for all panel data imports
 
+STEP 3: Initialize Snapshots (version management)
+└─ python etl/create_snapshot.py --batch-default 2020 2024
+   → Creates 20 snapshots (snapshot_id: 1-20)
+   → For: 4 data sources × fiscal years 2020-2024
+   → Each snapshot identified by source_name + fiscal_year
+
 STEP 4: Import Panel Data
 └─ python etl/import_panel.py data/panel.xlsx --snapshots 1-20
-   → Loads 37 variables across 6 fact tables
-   → Each record linked to snapshot_id
+   → Loads 38 variables across 6 fact tables
+   → Each record linked by snapshot_id
 
 STEP 5: Validate Data Quality
 └─ python etl/qc_checks.py
@@ -297,26 +313,42 @@ STEP 5: Validate Data Quality
 STEP 6: Export Clean Data
 └─ python etl/export_panel.py
    → Generates outputs/panel_latest.csv
-   → 37 variables with latest snapshot selection
+   → 38 variables with latest snapshot selection
    → Ready for analysis
 ```
 
-### Example: Complete Batch Import
+### Reproducible Scripts
+
+**IMPORTANT: Database Initialization Required**
+
+Before running the ETL pipeline, you must first initialize the MySQL database with schema and seed data:
 
 ```bash
-# 1. Create 20 snapshots for batch
-python etl/create_snapshot.py --batch-default 2020 2024
+# 1. Initialize MySQL database (MUST RUN FIRST!)
+mysql -u root -p < sql/schema_and_seed.sql
+# This creates all required tables (dim_firm, fact_data_snapshot, etc.) and seed data
+```
 
+After database initialization is complete, execute the ETL pipeline in order:
+
+```bash
 # 2. Import firms
 python etl/import_firms.py data/firms.xlsx
 
-# 3. Import snapshots 1-10 (4 sources × 2 years)
-python etl/import_panel.py data/panel_batch1.xlsx --snapshots 1-10
+# 3. Create 20 snapshots for batch
+python etl/create_snapshot.py --setup
+python etl/create_snapshot.py --batch-default 2020 2024
 
-# 4. Validate imported data
+# 4. Import data 
+python etl/import_panel.py data/panel_2020_2024.xlsx --modules financial --snapshots 1-5
+python etl/import_panel.py data/panel_2020_2024.xlsx --modules cashflow --snapshots 6-10
+python etl/import_panel.py data/panel_2020_2024.xlsx --modules market  --snapshots 11-15
+python etl/import_panel.py data/panel_2020_2024.xlsx --modules ownership, innovation, meta  --snapshots 16-20
+
+# 5. Validate imported data
 python etl/qc_checks.py
 
-# 5. Export clean panel
+# 6. Export clean panel
 python etl/export_panel.py
 
 # Check results
@@ -383,46 +415,6 @@ snapshot_id (PK) | source_id (FK) | fiscal_year | created_at | description | rec
 
 ---
 
-## 37-Variable Panel Data Overview
-
-| Module | Variables | Count |
-|--------|-----------|-------|
-| **Ownership** | managerial_inside_own, state_own, institutional_own, foreign_own | 4 |
-| **Market** | shares_outstanding, market_value_equity, dividend_cash_paid, eps_basic | 4 |
-| **Financial** | net_sales, total_assets, selling_expenses, general_admin_expenses, intangible_assets_net, manufacturing_overhead, net_operating_income, raw_material_consumption, merchandise_purchase_year, wip_goods_purchase, outside_manufacturing_expenses, production_cost, rnd_expenses, net_income, total_equity, total_liabilities, cash_and_equivalents, long_term_debt, current_assets, current_liabilities, growth_ratio, inventory, net_ppe | 23 |
-| **Cashflow** | net_cfo, net_cfi, capex | 3 |
-| **Innovation** | product_innovation, process_innovation | 2 |
-| **Metadata** | employees_count, firm_age | 2 |
-| **TOTAL** | | **37** |
-
----
-
-## 🔧 Troubleshooting
-
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| MySQL connection error | Wrong credentials or server offline | Update `db_config.py`, verify MySQL is running |
-| "Snapshot ID not found" | snapshot_id doesn't exist | Run `create_snapshot.py` first with matching ID |
-| "Duplicate entry" error | Record already exists | Check for existing data, update or skip |
-| QC errors in report | Data validation failures | Review `qc_report.csv`, verify source data |
-| Missing columns in export | Schema mismatch | Verify fact table columns match expected variable names |
-| "No rows" in output | Mismatched firm_id or fiscal_year | Check Excel data matches dim_firm records |
-
----
-
-## ✨ Key Features & Architecture
-
-✅ **Multi-version data management** — Up to 20 concurrent snapshots (snapshot_id 1-20)  
-✅ **Automated ETL pipeline** — Complete workflow in Python scripts  
-✅ **Data quality validation** — 6 comprehensive check types using MAX(snapshot_id)  
-✅ **Selective import** — Choose specific modules and snapshot ranges  
-✅ **Code optimization** — 222-line QC module (57% reduction) with helper methods  
-✅ **Flexible export** — 37-variable panel with latest snapshot selection per firm-year  
-✅ **Error tracking** — Detailed CSV reports for all validation failures  
-✅ **Version control** — Snapshot-based approach allows data lineage tracking  
-
----
-
 ## 📝 Notes
 
 - **Snapshot Workflow:** Each import operation assigns a `snapshot_id`, enabling multiple data versions and audit trails
@@ -432,25 +424,6 @@ snapshot_id (PK) | source_id (FK) | fiscal_year | created_at | description | rec
 
 ---
 
-## 📄 File Dependencies
-
-```
-db_config.py
-    ↓
-create_snapshot.py → fact_data_snapshot
-    ↓
-import_firms.py → dim_firm
-    ↓
-import_panel.py → 6 fact tables (all link to fact_data_snapshot)
-    ↓
-qc_checks.py → outputs/qc_report.csv
-    ↓
-export_panel.py → outputs/panel_latest.csv
-```
-
----
-
 **Last Updated:** March 2026  
 **Project:** TEAM_4_FirmDataHub  
-**Version:** 1.0
 
