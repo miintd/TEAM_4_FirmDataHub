@@ -278,7 +278,8 @@ STEP 2: Import Master Firm Data
 
 STEP 3: Initialize Snapshots (version management)
 └─ python etl/create_snapshot.py --batch-default 2020 2024
-   → Creates 20 snapshots (snapshot_id: 1-20) for 4 data sources × fiscal years 2020-2024 or creates a single snapshot for each pair of sources and fiscal years 
+   → Creates 20 snapshots (snapshot_id: 1-20) for 4 data sources × fiscal years 2020-2024
+   → Or creates a single snapshot for each pair of sources and fiscal years 
 
 STEP 4: Import Panel Data
 └─ python etl/import_panel.py data/panel.xlsx --snapshots 1-20
@@ -323,7 +324,7 @@ python etl/create_snapshot.py --batch-default 2020 2024
 python etl/import_panel.py data/panel_2020_2024.xlsx --modules financial --snapshots 1-5
 python etl/import_panel.py data/panel_2020_2024.xlsx --modules cashflow --snapshots 6-10
 python etl/import_panel.py data/panel_2020_2024.xlsx --modules market  --snapshots 11-15
-python etl/import_panel.py data/panel_2020_2024.xlsx --modules ownership, innovation, meta  --snapshots 16-20
+python etl/import_panel.py data/panel_2020_2024.xlsx --modules ownership,innovation,meta  --snapshots 16-20
 
 # 5. Validate imported data
 python etl/qc_checks.py
