@@ -160,14 +160,6 @@ python etl/create_snapshot.py --batch-default 2020 2024
 
 **Purpose:** Import financial panel data into 6 fact tables with snapshot versioning
 
-**Key Concept:** Import data for specific sources and fiscal years, with each data row linked to corresponding snapshot
-
-**Input Parameters:**
-- Excel file containing panel data (columns: ticker, fiscal_year, source_name, variable_name, value)
-- `--source-year` (optional) - Import specific source_name + fiscal_year(s)
-- `--snapshots` (alternative) - Import using snapshot_id(s) directly
-- `--modules` (optional) - Module filter (financial, ownership, market, cashflow, innovation, meta)
-
 **Features:**
 - Reads 38-variable panel data from Excel
 - Validates `snapshot_id` exists in `fact_data_snapshot`
@@ -187,17 +179,8 @@ python etl/import_panel.py data/panel.xlsx --snapshots 1
 
 **Usage — Multiple modules:**
 ```bash
-# Single snapshot
-python etl/import_panel.py data/panel.xlsx --snapshots 1
-
 # Multiple modules with snapshots
 python etl/import_panel.py data/panel.xlsx --modules financial,ownership --snapshots 1-5
-```
-
-**Usage — Multiple snapshot ranges:**
-```bash
-# Import snapshots 1-5 and 6-10
-python etl/import_panel.py data/panel.xlsx --snapshots 1-5,6-10
 ```
 
 **Supported modules:**
@@ -295,9 +278,7 @@ STEP 2: Import Master Firm Data
 
 STEP 3: Initialize Snapshots (version management)
 └─ python etl/create_snapshot.py --batch-default 2020 2024
-   → Creates 20 snapshots (snapshot_id: 1-20)
-   → For: 4 data sources × fiscal years 2020-2024
-   → Each snapshot identified by source_name + fiscal_year
+   → Creates 20 snapshots (snapshot_id: 1-20) for 4 data sources × fiscal years 2020-2024 or creates a single snapshot for each pair of sources and fiscal years 
 
 STEP 4: Import Panel Data
 └─ python etl/import_panel.py data/panel.xlsx --snapshots 1-20
@@ -312,8 +293,7 @@ STEP 5: Validate Data Quality
 
 STEP 6: Export Clean Data
 └─ python etl/export_panel.py
-   → Generates outputs/panel_latest.csv
-   → 38 variables with latest snapshot selection
+   → Generates outputs/panel_latest.csv combining 38 variables with latest snapshot selection
    → Ready for analysis
 ```
 
@@ -354,63 +334,6 @@ python etl/export_panel.py
 # Check results
 cat outputs/qc_report.csv | head -20
 ls -lh outputs/panel_latest.csv
-```
-
----
-
-## 📊 Database Schema
-
-### Dimension Tables
-
-**`dim_firm`** — Company master data
-```sql
-firm_id (PK) | ticker | firm_name | industry | country | ...
-```
-
-**`dim_data_source`** — Data source reference
-```sql
-source_id (PK) | source_name | description | ...
-```
-
-### Fact Tables (each row linked to snapshot_id)
-
-**Template structure:**
-```sql
-fact_id (PK) | firm_id (FK) | fiscal_year | snapshot_id (FK) | ... variables ...
-```
-
-**`fact_ownership_year`** — 4 variables
-- managerial_inside_own, state_own, institutional_own, foreign_own
-
-**`fact_market_year`** — 4 variables
-- shares_outstanding, market_value_equity, dividend_cash_paid, eps_basic
-
-**`fact_financial_year`** — 23 variables
-- Revenue: net_sales
-- Assets: total_assets, current_assets, inventory, cash_and_equivalents, intangible_assets_net, net_ppe
-- Expenses: selling_expenses, general_admin_expenses, manufacturing_overhead, raw_material_consumption, merchandise_purchase_year, wip_goods_purchase, outside_manufacturing_expenses, production_cost, rnd_expenses
-- Profitability: net_income, net_operating_income
-- Structure: total_equity, total_liabilities, long_term_debt, current_liabilities
-- Growth: growth_ratio
-
-**`fact_cashflow_year`** — 3 variables
-- net_cfo (Operating Cash Flow)
-- net_cfi (Investment Cash Flow)
-- capex (Capital Expenditure)
-
-**`fact_innovation_year`** — 2 variables
-- product_innovation (0 or 1)
-- process_innovation (0 or 1)
-
-**`fact_firm_year_meta`** — 2 variables
-- employees_count
-- firm_age
-
-### Snapshot Table
-
-**`fact_data_snapshot`** — Version control and audit trail
-```sql
-snapshot_id (PK) | source_id (FK) | fiscal_year | created_at | description | record_count
 ```
 
 ---
