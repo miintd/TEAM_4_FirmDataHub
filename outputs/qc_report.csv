@@ -1,3 +1,3 @@
-﻿ticker,fiscal_year,field_name,error_type,message
-PVT,2022,ownership.managerial_inside_own,missing_value,Missing managerial_inside_own
-PVT,2023,ownership.managerial_inside_own,missing_value,Missing managerial_inside_own
+﻿ticker;fiscal_year;field_name;error_type;message
+PVT;2022;ownership.managerial_inside_own;missing_value;On page 27 Annual Report 2022 of PVT, under “Shareholder Structure”, the Annual Report does not disclose managerial or insider ownership. Therefore, ownership.managerial_inside_own is not available and treated as missing.
+PVT;2023;ownership.managerial_inside_own;missing_value;On page 35 Annual Report 2023 of PVT, under “Shareholder Structure”, the Annual Report does not disclose managerial or insider ownership. Therefore, ownership.managerial_inside_own is not available and treated as missing.
