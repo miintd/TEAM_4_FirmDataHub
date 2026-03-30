@@ -184,13 +184,13 @@ def main():
             creator.setup_source("Vietstock", "market", "Vietstock", "Market fields (price, shares, dividend, EPS)")
             creator.setup_source("AnnualReport", "text_report", "Company", "Annual report / disclosures for ownership, innovation & health")
         elif sys.argv[1] == "--batch-default":
-            # Create batch snapshots for 4 default sources
+            # Create batch snapshots for 3 default sources
             if len(sys.argv) < 4:
                 print("Usage: python create_snapshot.py --batch-default <start_year> <end_year>")
                 return
             start_year = int(sys.argv[2])
             end_year = int(sys.argv[3])
-            default_sources = ["vnstock_v2", "BCTC_Audited", "Vietstock", "AnnualReport"]
+            default_sources = ["vnstock_v2", "BCTC_Audited", "AnnualReport"]
             creator.create_batch_snapshots(default_sources, start_year, end_year)
         else:
             if len(sys.argv) < 3:
